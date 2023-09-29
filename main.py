@@ -83,5 +83,5 @@ testfor = 20
 tickers = tickers[:testfor]
 
 alpha = Alpha(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-alpha.run_simulation()
-#print(ticker_dfs)
+portfolio_df = alpha.run_simulation()
+print(portfolio_df)

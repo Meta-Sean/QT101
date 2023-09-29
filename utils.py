@@ -108,7 +108,8 @@ class Alpha():
 
             portfolio_df.loc[i, "nominal"] = nominal_tot
             portfolio_df.loc[i, "leverage"] = nominal_tot / portfolio_df.loc[i, "capital"]
-            input(portfolio_df.loc[i])
+            if i %100 == 0: print(portfolio_df.loc[i])
+        return portfolio_df
 
 
 
