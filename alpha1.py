@@ -27,7 +27,7 @@ class Alpha1():
             inst_df = self.dfs[inst]
             op1 = inst_df.volume
             op2 = (inst_df.close - inst_df.low) - (inst_df.high - inst_df.close) 
-            op3 = inst_df.high - inst_df.close
+            op3 = inst_df.high - inst_df.low
             op4 = op1 * op2 / op3
 
             self.dfs[inst] = df.join(self.dfs[inst]).fillna(method="ffill").fillna(method="bfill")
@@ -41,7 +41,7 @@ class Alpha1():
 
         temp_df = pd.concat(op4s, axis=1)
         temp_df.columns = self.insts
-        temp_df = temp_df.replace(np.inf, 0).replace(np.inf, 0)
+        temp_df = temp_df.replace(np.inf, 0).replace(-np.inf, 0)
         zscore = lambda x: (x - np.mean(x))/np.std(x)
         cszcre_df = temp_df.fillna(method="ffill").apply(zscore, axis=1)
         for inst in self.insts:

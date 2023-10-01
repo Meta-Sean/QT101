@@ -87,7 +87,13 @@ tickers = tickers[:testfor]
 # print(portfolio_df)
 
 
-from alpha1 import Alpha1
-alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-df1 = alpha1.run_simulation()
-print(df1)
+# from alpha1 import Alpha1
+# alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+# df1 = alpha1.run_simulation()
+# print(df1)
+
+
+from alpha2 import Alpha2
+alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+df2 = alpha2.run_simulation()
+print(df2)

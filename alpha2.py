@@ -1,11 +1,10 @@
-import lzma
-import dill as pickle
 import pandas as pd
 import numpy as np
-import random
+from utils import get_pnl_stats
 
 
 class Alpha2():
+    # mean_12(neg(minus(const_1, div(open, close))))
     
     def __init__(self, insts, dfs, start, end):
         self.insts = insts
@@ -21,14 +20,23 @@ class Alpha2():
         return portfolio_df
 
     def compute_meta_info(self, trade_range):
+        '''
+        mean_12(neg(minus(const_1, div(open, close))))
+        '''
         for inst in self.insts:
             df = pd.DataFrame(index=trade_range)
+            inst_df = self.dfs[inst]
+            alpha = -1 * (1-(inst_df.open/inst_df.close)).rolling(12).mean()
+
             self.dfs[inst] = df.join(self.dfs[inst]).fillna(method="ffill").fillna(method="bfill")
             self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"] / self.dfs[inst]["close"].shift(1)
+            self.dfs[inst]["alpha"] = alpha
+            self.dfs[inst]["alpha"] = self.dfs[inst]["alpha"].fillna(method="ffill")
             sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(method="bfill")
             eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
-            self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
-
+            self.dfs[inst]["eligible"] = eligible.astype(int) \
+                & (self.dfs[inst]["close"] > 0).astype(int) \
+                & (~pd.isna(self.dfs[inst]["alpha"])) 
         return 
 
     def run_simulation(self):
@@ -55,20 +63,20 @@ class Alpha2():
 
             alpha_scores = {}
             for inst in eligibles:
-                alpha_scores[inst] = random.uniform(0,1)
-            alpha_scores = {k:v for k,v in sorted(alpha_scores.items(), key=lambda pair:pair[1])}
-            alpha_long = list(alpha_scores.keys())[-int(len(eligibles)/4):]
-            alpha_short = list(alpha_scores.keys())[:int(len(eligibles)/4)]
-            
+                alpha_scores[inst] = self.dfs[inst].loc[date, "alpha"]
+
+
             for inst in non_eligibles:
                 portfolio_df.loc[i, "{} w".format(inst)] = 0
                 portfolio_df.loc[i, "{} units".format(inst)] = 0
 
+            absolute_scores = np.abs([score for score in alpha_scores.values()])
+            forecast_chips = np.sum(absolute_scores)
             nominal_tot = 0    
 
             for inst in eligibles:
-                forecast = 1 if inst in alpha_long else (-1 if inst in alpha_short else 0)
-                dollar_allocation = portfolio_df.loc[i, "capital"] / (len(alpha_long) + len(alpha_short))
+                forecast = alpha_scores[inst]
+                dollar_allocation = portfolio_df.loc[i, "capital"] / forecast_chips if forecast_chips != 0 else 0
                 position = forecast * dollar_allocation / self.dfs[inst].loc[date, "close"]
                 portfolio_df.loc[i, inst + " units"] = position
                 nominal_tot += abs(position * self.dfs[inst].loc[date,"close"])
