@@ -39,17 +39,21 @@ class AbstractImplementationException(Exception):
 
 class Alpha():
     
-    def __init__(self, insts, dfs, start, end):
+    def __init__(self, insts, dfs, start, end, portfolio_vol=0.20):
         self.insts = insts
         self.dfs = deepcopy(dfs)
         self.start = start
         self.end = end
+        self.portfolio_vol = portfolio_vol
 
     def init_portfolio_settings(self, trade_range):
         portfolio_df = pd.DataFrame(index=trade_range)\
             .reset_index()\
             .rename(columns={"index":"datetime"})
         portfolio_df.loc[0, "capital"] = 10000
+        portfolio_df.loc[0, "day_pnl"] = 0.0
+        portfolio_df.loc[0, "capital_ret"] = 0.0
+        portfolio_df.loc[0, "nominal_ret"] = 0.0
         return portfolio_df
 
     def pre_compute(self, trade_range):
@@ -66,9 +70,13 @@ class Alpha():
 
         for inst in self.insts:
             df = pd.DataFrame(index=trade_range)
+            inst_vol = (-1 + self.dfs[inst]["close"] / self.dfs[inst]["close"].shift(1)).rolling(30).std()
             self.dfs[inst] = df.join(self.dfs[inst]).fillna(method="ffill").fillna(method="bfill")
             self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"] / self.dfs[inst]["close"].shift(1)
-            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(method="bfill")
+            self.dfs[inst]["vol"] = inst_vol
+            self.dfs[inst]["vol"] = self.dfs[inst]["vol"].fillna(method="ffill").fillna(0)
+            self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
+            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(0)
             eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
             self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
 
@@ -104,12 +112,18 @@ class Alpha():
                 portfolio_df.loc[i, "{} w".format(inst)] = 0
                 portfolio_df.loc[i, "{} units".format(inst)] = 0
 
+            vol_target = self.portfolio_vol / np.sqrt(253) * portfolio_df.loc[i, "capital"]
+
             nominal_tot = 0    
 
             for inst in eligibles:
                 forecast = forecasts[inst]
+                scaled_forecast = forecast / forecast_chips if forecast_chips != 0 else 0
+
                 dollar_allocation = portfolio_df.loc[i, "capital"] / forecast_chips if forecast_chips != 0 else 0
-                position = forecast * dollar_allocation / self.dfs[inst].loc[date, "close"]
+
+                position = scaled_forecast * vol_target / (self.dfs[inst].loc[date, "vol"] * self.dfs[inst].loc[date,"close"])
+
                 portfolio_df.loc[i, inst + " units"] = position
                 nominal_tot += abs(position * self.dfs[inst].loc[date,"close"])
 

@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import numpy as np
 from bs4 import BeautifulSoup
 import pytz
 from datetime import datetime
@@ -90,28 +91,43 @@ tickers, ticker_dfs = get_ticker_dfs(period_start, period_end)
 testfor = 20
 tickers = tickers[:testfor]
 
-# alpha = Alpha(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-# portfolio_df = alpha.run_simulation()
-# print(portfolio_df)
 
-
-# from alpha1 import Alpha1
-# alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-# df1 = alpha1.run_simulation()
-# print(df1)
-
-
-# from alpha2 import Alpha2
-# alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-# df2 = alpha2.run_simulation()
-# print(df2)
-
-# from alpha3 import Alpha3
-# alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
-# df3 = alpha3.run_simulation()
-# print(df3)
 
 from alpha1 import Alpha1
+from alpha2 import Alpha2
+from alpha3 import Alpha3
+
 alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
+
 df1 = alpha1.run_simulation()
-print(df1)
+exit()
+# df2 = alpha2.run_simulation()
+# df3 = alpha3.run_simulation()
+# save_pickle("simulations.obj", (df1, df2, df3))
+
+df1, df2, df3 = load_pickle("simulations.obj")
+
+import matplotlib.pyplot as plt
+
+plt.plot(df1.capital)
+plt.plot(df2.capital)
+plt.plot(df3.capital)
+plt.show()
+plt.close()
+
+nzr = lambda df: df.capital_ret.loc[df.capital_ret != 0].fillna(0)
+
+def plot_vol(r):
+    vol = r.rolling(25).std() * np.sqrt(253)
+    plt.plot(vol)
+    plt.show()
+    plt.close()
+
+plot_vol(nzr(df1))
+plot_vol(nzr(df2))
+plot_vol(nzr(df3))
+
+nzr(df1).std().np.sqrt(253)
+
