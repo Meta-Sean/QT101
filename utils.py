@@ -83,19 +83,31 @@ class Alpha():
         self.post_compute(trade_range=trade_range)
         return 
 
+    def get_strat_scalar(self, target_vol ,ewmas ,ewstrats):
+        ann_realized_vol = np.sqrt(ewmas[-1] * 253)
+        return target_vol / ann_realized_vol * ewstrats[-1]
+
     def run_simulation(self):
         print("running sim")
         date_range = pd.date_range(start=self.start, end=self.end, freq="D")
         self.compute_meta_info(trade_range=date_range)
         portfolio_df = self.init_portfolio_settings(trade_range=date_range)
+        self.ewmas, self.ewstrats = [0.01], [1]
+        self.strat_scalars = []
         for i in portfolio_df.index:
             date = portfolio_df.loc[i, "datetime"]
-            
             eligibles = [inst for inst in self.insts if self.dfs[inst].loc[date, "eligible"] == 1]
             non_eligibles = [inst for inst in self.insts if inst not in eligibles]
+            strat_scalar = 2
 
             if i != 0:
                 date_prev = portfolio_df.loc[i-1, "datetime"]
+
+                strat_scalar = self.get_strat_scalar(
+                    target_vol = self.portfolio_vol,
+                    ewmas = self.ewmas,
+                    ewstrats = self.ewstrats
+                )
                 day_pnl, capital_ret = get_pnl_stats(
                     date=date,
                     prev=date_prev,
@@ -104,6 +116,10 @@ class Alpha():
                     idx=i,
                     dfs=self.dfs
                 )
+                self.ewmas.append(0.06 * (capital_ret**2) + 0.94  * self.ewmas[-1] if capital_ret != 0 else self.ewmas[-1])
+                self.ewstrats.append(0.06 * strat_scalar + 0.94 * self.ewstrats[-1] if capital_ret != 0 else self.ewstrats[-1])
+
+            self.strat_scalars.append(strat_scalar)
 
  
             forecasts, forecast_chips = self.compute_signal_distribution(eligibles, date)
@@ -122,7 +138,7 @@ class Alpha():
 
                 dollar_allocation = portfolio_df.loc[i, "capital"] / forecast_chips if forecast_chips != 0 else 0
 
-                position = scaled_forecast * vol_target / (self.dfs[inst].loc[date, "vol"] * self.dfs[inst].loc[date,"close"])
+                position = strat_scalar * scaled_forecast * vol_target / (self.dfs[inst].loc[date, "vol"] * self.dfs[inst].loc[date,"close"])
 
                 portfolio_df.loc[i, inst + " units"] = position
                 nominal_tot += abs(position * self.dfs[inst].loc[date,"close"])
