@@ -101,42 +101,46 @@ alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
 alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
 alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
 
-df1 = alpha1.run_simulation()
-nzr = lambda df: df.capital_ret.loc[df.capital_ret != 0].fillna(0)
-import matplotlib.pyplot as plt
-def plot_vol(r):
-    vol = r.rolling(25).std() * np.sqrt(253)
-    plt.plot(vol)
-    plt.show()
-    plt.close()
-plot_vol(nzr(df1))
-print(nzr(df1).std()*np.sqrt(253))
-exit()
-# df2 = alpha2.run_simulation()
+# df1 = alpha1.run_simulation()
+# df2 = alpha3.run_simulation()
 # df3 = alpha3.run_simulation()
-# save_pickle("simulations.obj", (df1, df2, df3))
 
-df1, df2, df3 = load_pickle("simulations.obj")
+from utils import Portfolio
+(df1, df2, df3) = load_pickle("simulations.obj")
+df1 = df1.set_index("datetime", drop=True)
+df2 = df2.set_index("datetime", drop=True)
+df3 = df3.set_index("datetime", drop=True)
+portfolio = Portfolio(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end, stratdfs=[df1,df2,df3])
+df4 = portfolio.run_simulation()
 
+import numpy as np
 import matplotlib.pyplot as plt
 
-plt.plot(df1.capital)
-plt.plot(df2.capital)
-plt.plot(df3.capital)
+logret = lambda df: np.log((1 + df.capital_ret).cumprod())
+plt.plot(logret(df1), label="1")
+plt.plot(logret(df2), label="2")
+plt.plot(logret(df3), label="3")
+plt.plot(logret(df4), label="4")
+plt.legend()
 plt.show()
-plt.close()
 
-nzr = lambda df: df.capital_ret.loc[df.capital_ret != 0].fillna(0)
+nzr = lambda df: df.capital_ret.loc[df.capital_ret != 0]
+print(np.std(nzr(df4)) * np.sqrt(253))
 
-def plot_vol(r):
-    vol = r.rolling(25).std() * np.sqrt(253)
-    plt.plot(vol)
-    plt.show()
-    plt.close()
 
-plot_vol(nzr(df1))
-plot_vol(nzr(df2))
-plot_vol(nzr(df3))
 
-nzr(df1).std().np.sqrt(253)
+
+
+
+
+
+
+
+
+# import matplotlib.pyplot as plt
+# def plot_vol(r):
+#     vol = r.rolling(25).std() * np.sqrt(253)
+#     plt.plot(vol)
+#     plt.show()
+#     plt.close()
 

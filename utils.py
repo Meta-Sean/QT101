@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import random
 from copy import deepcopy
+from collections import defaultdict
 
 def load_pickle(path):
     with lzma.open(path, "rb") as fp:
@@ -152,9 +153,30 @@ class Alpha():
             portfolio_df.loc[i, "nominal"] = nominal_tot
             portfolio_df.loc[i, "leverage"] = nominal_tot / portfolio_df.loc[i, "capital"]
             if i %100 == 0: print(portfolio_df.loc[i])
-        return portfolio_df
+        return portfolio_df.set_index("datetime", drop=True)
 
 
+class Portfolio(Alpha):
 
+    def __init__ (self, insts, dfs, start, end, stratdfs):
+        super().__init__(insts, dfs, start, end)
+        self.stratdfs = stratdfs
 
+    def post_compute(self, trade_range):
+        self.positions = {}
+        for inst in self.insts:
+            inst_weights = pd.DataFrame(index=trade_range)
+            for i in range(len(self.stratdfs)):
+                inst_weights[i] = self.stratdfs[i]["{} w".format(inst)]\
+                    * self.stratdfs[i]["leverage"]
+                inst_weights[i] = inst_weights[i].fillna(method="ffill").fillna(0.0)
+            self.positions[inst] = inst_weights
+        return
 
+    def compute_signal_distribution(self, eligibles, date):
+        forecasts = defaultdict(float)
+        for inst in self.insts:
+            for i in range(len(self.stratdfs)):
+                forecasts[inst] += self.positions[inst].loc[date, i] * (1/len(self.stratdfs))
+                # risk parity alloc
+        return forecasts, np.sum(np.abs(list(forecasts.values())))
