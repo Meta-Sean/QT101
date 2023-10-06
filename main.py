@@ -8,6 +8,7 @@ import yfinance
 import threading
 from utils import load_pickle, save_pickle
 from utils import Alpha
+from utils import timeme
 
 
 def get_sp500_tickers():
@@ -82,6 +83,8 @@ def get_ticker_dfs(start, end):
         save_pickle("dataset.obj", (tickers, ticker_dfs))
 
     return tickers, ticker_dfs
+
+
 
 
 period_start = datetime(2010, 1, 1, tzinfo=pytz.utc)
