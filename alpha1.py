@@ -38,7 +38,7 @@ class Alpha1(Alpha):
     def compute_signal_distribution(self, eligibles, date):
         alpha_scores = {}
         for inst in eligibles:
-            alpha_scores[inst] = self.dfs[inst].loc[date, "alpha"]
+            alpha_scores[inst] = self.dfs[inst].at[date, "alpha"]
         alpha_scores = {k:v for k,v in sorted(alpha_scores.items(), key=lambda pair:pair[1])}
         alpha_long = list(alpha_scores.keys())[-int(len(eligibles)/4):]
         alpha_short = list(alpha_scores.keys())[:int(len(eligibles)/4)]

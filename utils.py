@@ -32,18 +32,18 @@ def get_pnl_stats(date, prev, portfolio_df, insts, idx, dfs):
     day_pnl = 0
     nominal_ret = 0
     for inst in insts:
-        units = portfolio_df.loc[idx - 1, "{} units".format(inst)]
+        units = portfolio_df.at[idx - 1, "{} units".format(inst)]
         if units != 0:
-            delta = dfs[inst].loc[date, "close"] - dfs[inst].loc[prev, "close"]
+            delta = dfs[inst].at[date, "close"] - dfs[inst].at[prev, "close"]
             inst_pnl = delta * units
             day_pnl += inst_pnl
-            nominal_ret += portfolio_df.loc[idx -1, "{} w".format(inst)] * dfs[inst].loc[date, "ret"]
+            nominal_ret += portfolio_df.at[idx -1, "{} w".format(inst)] * dfs[inst].at[date, "ret"]
 
-    capital_ret = nominal_ret * portfolio_df.loc[idx - 1, "leverage"]
-    portfolio_df.loc[idx, "capital"] = portfolio_df.loc[idx -1, "capital"] + day_pnl
-    portfolio_df.loc[idx, "day_pnl"] = day_pnl
-    portfolio_df.loc[idx, "nominal_ret"] = nominal_ret
-    portfolio_df.loc[idx, "capital_ret"] = capital_ret
+    capital_ret = nominal_ret * portfolio_df.at[idx - 1, "leverage"]
+    portfolio_df.at[idx, "capital"] = portfolio_df.at[idx -1, "capital"] + day_pnl
+    portfolio_df.at[idx, "day_pnl"] = day_pnl
+    portfolio_df.at[idx, "nominal_ret"] = nominal_ret
+    portfolio_df.at[idx, "capital_ret"] = capital_ret
     return day_pnl, capital_ret
 
 
@@ -100,7 +100,8 @@ class Alpha():
     def get_strat_scalar(self, target_vol ,ewmas ,ewstrats):
         ann_realized_vol = np.sqrt(ewmas[-1] * 253)
         return target_vol / ann_realized_vol * ewstrats[-1]
-
+        
+    @timeme
     def run_simulation(self):
         print("running sim")
         date_range = pd.date_range(start=self.start, end=self.end, freq="D")

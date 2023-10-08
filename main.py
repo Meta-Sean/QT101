@@ -9,6 +9,12 @@ import threading
 from utils import load_pickle, save_pickle
 from utils import Alpha
 from utils import timeme
+import numpy as np
+import matplotlib.pyplot as plt
+from alpha1 import Alpha1
+from alpha2 import Alpha2
+from alpha3 import Alpha3
+from utils import Portfolio
 
 
 def get_sp500_tickers():
@@ -86,49 +92,53 @@ def get_ticker_dfs(start, end):
 
 
 
+def main():
+    period_start = datetime(2010, 1, 1, tzinfo=pytz.utc)
+    period_end = datetime.now(pytz.utc)
 
-period_start = datetime(2010, 1, 1, tzinfo=pytz.utc)
-period_end = datetime.now(pytz.utc)
-
-tickers, ticker_dfs = get_ticker_dfs(period_start, period_end)
-testfor = 20
-tickers = tickers[:testfor]
+    tickers, ticker_dfs = get_ticker_dfs(period_start, period_end)
+    testfor = 10
+    print(f"testing {testfor} out of {len(tickers)} tickers")
+    tickers = tickers[:testfor]
 
 
 
-from alpha1 import Alpha1
-from alpha2 import Alpha2
-from alpha3 import Alpha3
+    alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+    alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+    alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
 
-alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
+    df1 = alpha1.run_simulation()
+    print(list(df1.capital)[-1])
+    # df2 = alpha3.run_simulation()
+    # print(list(df2.capital)[-1])
+    # df3 = alpha3.run_simulation()
+    # print(list(df3.capital)[-1])
 
-# df1 = alpha1.run_simulation()
-# df2 = alpha3.run_simulation()
-# df3 = alpha3.run_simulation()
+if __name__ == "__main__":
+    main()
 
-from utils import Portfolio
-(df1, df2, df3) = load_pickle("simulations.obj")
-df1 = df1.set_index("datetime", drop=True)
-df2 = df2.set_index("datetime", drop=True)
-df3 = df3.set_index("datetime", drop=True)
-portfolio = Portfolio(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end, stratdfs=[df1,df2,df3])
-df4 = portfolio.run_simulation()
 
-import numpy as np
-import matplotlib.pyplot as plt
+ #cProfile   
 
-logret = lambda df: np.log((1 + df.capital_ret).cumprod())
-plt.plot(logret(df1), label="1")
-plt.plot(logret(df2), label="2")
-plt.plot(logret(df3), label="3")
-plt.plot(logret(df4), label="4")
-plt.legend()
-plt.show()
+# (df1, df2, df3) = load_pickle("simulations.obj")
+# df1 = df1.set_index("datetime", drop=True)
+# df2 = df2.set_index("datetime", drop=True)
+# df3 = df3.set_index("datetime", drop=True)
+# portfolio = Portfolio(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end, stratdfs=[df1,df2,df3])
+# df4 = portfolio.run_simulation()
 
-nzr = lambda df: df.capital_ret.loc[df.capital_ret != 0]
-print(np.std(nzr(df4)) * np.sqrt(253))
+
+
+# logret = lambda df: np.log((1 + df.capital_ret).cumprod())
+# plt.plot(logret(df1), label="1")
+# plt.plot(logret(df2), label="2")
+# plt.plot(logret(df3), label="3")
+# plt.plot(logret(df4), label="4")
+# plt.legend()
+# plt.show()
+
+# nzr = lambda df: df.capital_ret.loc[df.capital_ret != 0]
+# print(np.std(nzr(df4)) * np.sqrt(253))
 
 
 
