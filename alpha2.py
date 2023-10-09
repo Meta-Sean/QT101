@@ -29,5 +29,5 @@ class Alpha2(Alpha):
         forecasts = {}
 
         for inst in eligibles:
-            forecasts[inst] = self.dfs[inst].loc[date, "alpha"]
+            forecasts[inst] = self.dfs[inst].at[date, "alpha"]
         return forecasts, np.sum(np.abs(list(forecasts.values())))

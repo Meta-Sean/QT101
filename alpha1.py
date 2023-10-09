@@ -18,8 +18,8 @@ class Alpha1(Alpha):
             op4 = op1 * op2 / op3
             self.op4s[inst] = op4
         return
-
-
+ 
+    @profile
     def post_compute(self, trade_range):
         temp = []
         for inst in self.insts:

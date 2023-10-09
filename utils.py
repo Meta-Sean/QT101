@@ -64,10 +64,10 @@ class Alpha():
         portfolio_df = pd.DataFrame(index=trade_range)\
             .reset_index()\
             .rename(columns={"index":"datetime"})
-        portfolio_df.loc[0, "capital"] = 10000
-        portfolio_df.loc[0, "day_pnl"] = 0.0
-        portfolio_df.loc[0, "capital_ret"] = 0.0
-        portfolio_df.loc[0, "nominal_ret"] = 0.0
+        portfolio_df.at[0, "capital"] = 10000
+        portfolio_df.at[0, "day_pnl"] = 0.0
+        portfolio_df.at[0, "capital_ret"] = 0.0
+        portfolio_df.at[0, "nominal_ret"] = 0.0
         return portfolio_df
 
     def pre_compute(self, trade_range):
@@ -91,7 +91,7 @@ class Alpha():
             self.dfs[inst]["vol"] = self.dfs[inst]["vol"].fillna(method="ffill").fillna(0)
             self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
             sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(0)
-            eligible = sampled.rolling(5).apply(lambda x: int(np.any(x))).fillna(0)
+            eligible = (sampled.rolling(5).sum() > 0).astype(int).fillna(0)
             self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
 
         self.post_compute(trade_range=trade_range)
@@ -102,6 +102,7 @@ class Alpha():
         return target_vol / ann_realized_vol * ewstrats[-1]
         
     @timeme
+    @profile
     def run_simulation(self):
         print("running sim")
         date_range = pd.date_range(start=self.start, end=self.end, freq="D")
@@ -110,13 +111,13 @@ class Alpha():
         self.ewmas, self.ewstrats = [0.01], [1]
         self.strat_scalars = []
         for i in portfolio_df.index:
-            date = portfolio_df.loc[i, "datetime"]
+            date = portfolio_df.at[i, "datetime"]
             eligibles = [inst for inst in self.insts if self.dfs[inst].loc[date, "eligible"] == 1]
             non_eligibles = [inst for inst in self.insts if inst not in eligibles]
             strat_scalar = 2
 
             if i != 0:
-                date_prev = portfolio_df.loc[i-1, "datetime"]
+                date_prev = portfolio_df.at[i-1, "datetime"]
 
                 strat_scalar = self.get_strat_scalar(
                     target_vol = self.portfolio_vol,
@@ -140,10 +141,10 @@ class Alpha():
             forecasts, forecast_chips = self.compute_signal_distribution(eligibles, date)
             
             for inst in non_eligibles:
-                portfolio_df.loc[i, "{} w".format(inst)] = 0
-                portfolio_df.loc[i, "{} units".format(inst)] = 0
+                portfolio_df.at[i, "{} w".format(inst)] = 0
+                portfolio_df.at[i, "{} units".format(inst)] = 0
 
-            vol_target = self.portfolio_vol / np.sqrt(253) * portfolio_df.loc[i, "capital"]
+            vol_target = self.portfolio_vol / np.sqrt(253) * portfolio_df.at[i, "capital"]
 
             nominal_tot = 0    
 
@@ -151,21 +152,21 @@ class Alpha():
                 forecast = forecasts[inst]
                 scaled_forecast = forecast / forecast_chips if forecast_chips != 0 else 0
 
-                dollar_allocation = portfolio_df.loc[i, "capital"] / forecast_chips if forecast_chips != 0 else 0
+                dollar_allocation = portfolio_df.at[i, "capital"] / forecast_chips if forecast_chips != 0 else 0
 
-                position = strat_scalar * scaled_forecast * vol_target / (self.dfs[inst].loc[date, "vol"] * self.dfs[inst].loc[date,"close"])
+                position = strat_scalar * scaled_forecast * vol_target / (self.dfs[inst].at[date, "vol"] * self.dfs[inst].loc[date,"close"])
 
-                portfolio_df.loc[i, inst + " units"] = position
-                nominal_tot += abs(position * self.dfs[inst].loc[date,"close"])
+                portfolio_df.at[i, inst + " units"] = position
+                nominal_tot += abs(position * self.dfs[inst].at[date,"close"])
 
             for inst in eligibles:
-                units = portfolio_df.loc[i, inst + " units"]
-                nominal_inst = units * self.dfs[inst].loc[date, "close"]
+                units = portfolio_df.at[i, inst + " units"]
+                nominal_inst = units * self.dfs[inst].at[date, "close"]
                 inst_w = nominal_inst / nominal_tot
-                portfolio_df.loc[i, inst + " w"] = inst_w
+                portfolio_df.at[i, inst + " w"] = inst_w
 
-            portfolio_df.loc[i, "nominal"] = nominal_tot
-            portfolio_df.loc[i, "leverage"] = nominal_tot / portfolio_df.loc[i, "capital"]
+            portfolio_df.at[i, "nominal"] = nominal_tot
+            portfolio_df.at[i, "leverage"] = nominal_tot / portfolio_df.at[i, "capital"]
             if i %100 == 0: print(portfolio_df.loc[i])
         return portfolio_df.set_index("datetime", drop=True)
 
