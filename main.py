@@ -17,6 +17,7 @@ from alpha3 import Alpha3
 from utils import Portfolio
 
 
+
 def get_sp500_tickers():
     res = requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")
     soup = BeautifulSoup(res.content, "html.parser")
@@ -97,18 +98,18 @@ def main():
     period_end = datetime.now(pytz.utc)
 
     tickers, ticker_dfs = get_ticker_dfs(period_start, period_end)
-    testfor = 10
+    testfor = 200
     print(f"testing {testfor} out of {len(tickers)} tickers")
     tickers = tickers[:testfor]
 
 
 
     alpha1 = Alpha1(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-    alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
-    alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
+    # alpha2 = Alpha2(insts=tickers,dfs=ticker_dfs,start=period_start,end=period_end)
+    # alpha3 = Alpha3(insts=tickers, dfs=ticker_dfs, start=period_start, end=period_end)
 
     df1 = alpha1.run_simulation()
-    print(list(df1.capital)[-1])
+    # print(list(df1.capital)[-1])
     # df2 = alpha3.run_simulation()
     # print(list(df2.capital)[-1])
     # df3 = alpha3.run_simulation()

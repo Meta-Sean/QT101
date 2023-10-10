@@ -1,6 +1,7 @@
-from utils import Alpha
+#from utils import Alpha
 import numpy as np
 import pandas as pd
+from utils import EfficientAlpha as Alpha
 
 class Alpha1(Alpha):
 
@@ -19,7 +20,6 @@ class Alpha1(Alpha):
             self.op4s[inst] = op4
         return
  
-    @profile
     def post_compute(self, trade_range):
         temp = []
         for inst in self.insts:

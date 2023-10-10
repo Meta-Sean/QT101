@@ -82,6 +82,7 @@ class Alpha():
     def compute_meta_info(self, trade_range):
         self.pre_compute(trade_range=trade_range)
 
+        closes, eligibles, vols, rets = [], [], [], []
         for inst in self.insts:
             df = pd.DataFrame(index=trade_range)
             inst_vol = (-1 + self.dfs[inst]["close"] / self.dfs[inst]["close"].shift(1)).rolling(30).std()
@@ -92,7 +93,20 @@ class Alpha():
             self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
             sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(0)
             eligible = (sampled.rolling(5).sum() > 0).astype(int).fillna(0)
-            self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
+            #self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
+            eligibles.append(eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int))
+            closes.append(self.dfs[inst]["close"])
+            vols.append(self.dfs[inst]["vol"])
+            rets.append(self.dfs[inst]["ret"])
+
+        self.eligiblesdf = pd.concat(eligibles, axis=1)
+        self.eligiblesdf.columns = self.insts
+        self.closesdf = pd.concat(closes, axis=1)
+        self.closesdf.columns = self.insts
+        self.volsdf = pd.concat(vols, axis=1)
+        self.volsdf.columns = self.insts
+        self.retsdf = pd.concat(rets, axis=1)
+        self.retsdf.columns = self.insts
 
         self.post_compute(trade_range=trade_range)
         return 
@@ -102,7 +116,6 @@ class Alpha():
         return target_vol / ann_realized_vol * ewstrats[-1]
         
     @timeme
-    @profile
     def run_simulation(self):
         print("running sim")
         date_range = pd.date_range(start=self.start, end=self.end, freq="D")
@@ -167,7 +180,7 @@ class Alpha():
 
             portfolio_df.at[i, "nominal"] = nominal_tot
             portfolio_df.at[i, "leverage"] = nominal_tot / portfolio_df.at[i, "capital"]
-            if i %100 == 0: print(portfolio_df.loc[i])
+            #if i %100 == 0: print(portfolio_df.loc[i])
         return portfolio_df.set_index("datetime", drop=True)
 
 
@@ -195,3 +208,95 @@ class Portfolio(Alpha):
                 forecasts[inst] += self.positions[inst].loc[date, i] * (1/len(self.stratdfs))
                 # risk parity alloc
         return forecasts, np.sum(np.abs(list(forecasts.values())))
+
+
+class EfficientAlpha():
+    
+    def __init__(self, insts, dfs, start, end, portfolio_vol=0.20):
+        self.insts = insts
+        self.dfs = deepcopy(dfs)
+        self.start = start
+        self.end = end
+        self.portfolio_vol = portfolio_vol
+
+    def init_portfolio_settings(self, trade_range):
+        portfolio_df = pd.DataFrame(index=trade_range)\
+            .reset_index()\
+            .rename(columns={"index":"datetime"})
+        portfolio_df.at[0, "capital"] = 10000
+        portfolio_df.at[0, "day_pnl"] = 0.0
+        portfolio_df.at[0, "capital_ret"] = 0.0
+        portfolio_df.at[0, "nominal_ret"] = 0.0
+        return portfolio_df
+
+
+    def get_strat_scalar(self, target_vol ,ewmas ,ewstrats):
+        ann_realized_vol = np.sqrt(ewmas[-1] * 253)
+        return target_vol / ann_realized_vol * ewstrats[-1]
+            
+    @timeme
+    def run_simulation(self):
+        date_range = pd.date_range(start=self.start, end=self.end, freq="D")
+        self.compute_meta_info(trade_range=date_range)
+        self.portfolio_df = self.init_portfolio_settings(trade_range=date_range)
+
+        for data in self.zip_data_generator():
+            portfolio_i = data["portfolio_i"],
+            portfolio_row = data["portfolio_row"],
+            ret_i = data["ret_i"],
+            ret_row = data["ret_row"],
+            close_row = data["close_row"],
+            eligibles_row = data["eligibles_row"],
+            vol_row = data["vol_row"]
+            print(portfolio_i, portfolio_row)
+            print(ret_i, ret_row)
+            print(close_row)
+            print(eligibles_row)
+            print(vol_row)
+            input()
+
+
+    def zip_data_generator(self):
+        for (portfolio_i, portfolio_row), (ret_i, ret_row), (close_i, close_row), (eligibles_i, eligibles_row), (vol_i, vol_row) in zip(self.portfolio_df.iterrows(), self.retsdf.iterrows(), self.closesdf.iterrows(), self.eligiblesdf.iterrows(), self.volsdf.iterrows()):
+            yield {
+                "portfolio_i":portfolio_i,
+                "portfolio_row":portfolio_row,
+                "ret_i":ret_i,
+                "ret_row":ret_row,
+                "close_row":close_row,
+                "eligibles_row":eligibles_row,
+                "vol_row":vol_row,
+            }
+
+    def compute_meta_info(self, trade_range):
+        self.pre_compute(trade_range=trade_range)
+
+        closes, eligibles, vols, rets = [], [], [], []
+        for inst in self.insts:
+            df = pd.DataFrame(index=trade_range)
+            inst_vol = (-1 + self.dfs[inst]["close"] / self.dfs[inst]["close"].shift(1)).rolling(30).std()
+            self.dfs[inst] = df.join(self.dfs[inst]).fillna(method="ffill").fillna(method="bfill")
+            self.dfs[inst]["ret"] = -1 + self.dfs[inst]["close"] / self.dfs[inst]["close"].shift(1)
+            self.dfs[inst]["vol"] = inst_vol
+            self.dfs[inst]["vol"] = self.dfs[inst]["vol"].fillna(method="ffill").fillna(0)
+            self.dfs[inst]["vol"] = np.where(self.dfs[inst]["vol"] < 0.005, 0.005, self.dfs[inst]["vol"])
+            sampled = self.dfs[inst]["close"] != self.dfs[inst]["close"].shift(1).fillna(0)
+            eligible = (sampled.rolling(5).sum() > 0).astype(int).fillna(0)
+            self.dfs[inst]["eligible"] = eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int)
+            eligibles.append(eligible.astype(int) & (self.dfs[inst]["close"] > 0).astype(int))
+            closes.append(self.dfs[inst]["close"])
+            vols.append(self.dfs[inst]["vol"])
+            rets.append(self.dfs[inst]["ret"])
+
+        self.eligiblesdf = pd.concat(eligibles, axis=1)
+        self.eligiblesdf.columns = self.insts
+        self.closesdf = pd.concat(closes, axis=1)
+        self.closesdf.columns = self.insts
+        self.volsdf = pd.concat(vols, axis=1)
+        self.volsdf.columns = self.insts
+        self.retsdf = pd.concat(rets, axis=1)
+        self.retsdf.columns = self.insts
+    
+
+        self.post_compute(trade_range=trade_range)
+        return 
